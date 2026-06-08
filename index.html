@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Valentine Tree</title>
+
+<style>
+body{
+ margin:0;
+ background:#e6c6d2;
+ font-family: Arial, sans-serif;
+ overflow:hidden;
+}
+
+#title{
+ position:absolute;
+ left:70px;
+ top:40px;
+ font-size:44px;
+ font-weight:bold;
+ color:#ff4d88;
+ opacity:0;
+ transition:opacity 2s;
+}
+
+#textBox{
+ position:absolute;
+ left:70px;
+ top:140px;
+ width:500px;
+ color:#5a4a4f;
+ line-height:1.6;
+}
+
+/* ⭐ PICTURE UNDER TEXT ABOVE COUNTER */
+#funnyPicContainer{
+ position:absolute;
+ left:70px;
+ bottom:220px;
+ width:350px;
+}
+
+#funnyPic{
+ width:100%;
+ border-radius:14px;
+ box-shadow:0 6px 18px rgba(0,0,0,0.25);
+}
+
+#timerBox{
+ position:absolute;
+ left:70px;
+ bottom:40px;
+ opacity:0;
+ transition:opacity 2s;
+}
+
+#timer{
+ font-size:34px;
+ font-weight:bold;
+ color:#5a4a4f;
+}
+
+#timerJP{
+ font-size:16px;
+ color:#6b5a60;
+ margin-top:6px;
+}
+
+canvas{
+ display:block;
+}
+</style>
+</head>
+
+<body>
+
+<div id="title">Happy Anniversary! ❤️</div>
+
+<div id="textBox">
+<p id="typingText"></p>
+</div>
+
+<!-- ⭐ PICTURE ROTATION -->
+<div id="funnyPicContainer">
+<img id="funnyPic" src="pic1.jpg">
+</div>
+
+<div id="timerBox">
+<div id="timer"></div>
+<div id="timerJP">あの時から、あなたを好きになった ❤️</div>
+</div>
+
+<audio id="bgMusic" preload="auto" loop>
+<source src="music.mp3" type="audio/mpeg">
+</audio>
+
+<canvas id="c"></canvas>
+
+<script>
+
+/* ⭐ PICTURE ROTATION VARIABLES */
+const funnyPics = ["pic1.jpg","pic2.jpg","pic3.jpg","pic4.jpg","pic5.jpg","pic6.jpg","pic7.jpg","pic8.jpg"];
+let funnyIndex = 0;
+
+function rotateFunnyPic(){
+ funnyIndex++;
+ if(funnyIndex >= funnyPics.length) funnyIndex = 0;
+
+ const img = document.getElementById("funnyPic");
+ if(img){
+   img.src = funnyPics[funnyIndex];
+ }
+}
+
+document.addEventListener("click", rotateFunnyPic);
+document.addEventListener("touchstart", rotateFunnyPic);
+
+/* ================= AUDIO SAFE PLAY ================= */
+const music = document.getElementById("bgMusic");
+
+function playMusicSafe(){
+ if(!music) return;
+
+ const playPromise = music.play();
+
+ if(playPromise !== undefined){
+  playPromise.catch(()=>{
+   document.body.addEventListener("click", ()=>{
+    music.play();
+   }, { once:true });
+  });
+ }
+}
+
+/* ================= CANVAS ================= */
+const canvas=document.getElementById("c");
+const ctx=canvas.getContext("2d");
+
+function resize(){
+ canvas.width=window.innerWidth;
+ canvas.height=window.innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
+
+/* TREE SETTINGS */
+const treeOffsetX = canvas.width * 0.05;
+const TREE_SCALE = 1.2;
+
+const heartColors=[
+"#ffb3c6","#ff8fab","#ff4d6d",
+"#ffd166","#ff758f","#ff95a8"
+];
+
+let seedY=0;
+let trunkGrow=0;
+let crownGrow=0;
+let phase=0;
+
+let treeHearts=[];
+let fallingHearts=[];
+
+/* TRUNK TEXTURE */
+let trunkTexture=[];
+for(let i=0;i<14;i++){
+ trunkTexture.push({
+  offset:(Math.random()-0.5)*40,
+  tilt:(Math.random()*10-5)
+ });
+}
+
+/* HEART DRAW */
+function drawHeart(x,y,size,color){
+ ctx.fillStyle=color;
+ ctx.beginPath();
+ ctx.moveTo(x,y);
+ ctx.bezierCurveTo(x-size,y-size,x-size*2,y+size,x,y+size*2);
+ ctx.bezierCurveTo(x+size*2,y+size,x+size,y-size,x,y);
+ ctx.fill();
+}
+
+/* TREE HEART GENERATION */
+function generateTreeHearts(){
+
+ let cx=canvas.width/2 + treeOffsetX;
+ let cy=canvas.height*0.31;
+
+ let total=560;
+
+ for(let i=0;i<total;i++){
+  let t=Math.random()*Math.PI*2;
+  let r=Math.sqrt(Math.random());
+
+  let hx=16*Math.pow(Math.sin(t),3);
+  let hy=-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t));
+
+  let scale=7.4*r*TREE_SCALE;
+
+  treeHearts.push({
+   x:cx+hx*scale+(Math.random()-0.5)*5,
+   y:cy+hy*scale+(Math.random()-0.5)*5,
+   size:(5+Math.random()*4)*TREE_SCALE,
+   color:heartColors[Math.floor(Math.random()*heartColors.length)]
+  });
+ }
+}
+generateTreeHearts();
+
+/* TRUNK */
+function drawTrunk(){
+ let baseX=canvas.width/2 + treeOffsetX;
+ let baseY=canvas.height*0.82;
+ let topY=baseY-trunkGrow;
+
+ let wBottom=90*TREE_SCALE;
+ let wTop=26*TREE_SCALE;
+
+ ctx.fillStyle="#1f9a8a";
+
+ ctx.beginPath();
+ ctx.moveTo(baseX-wBottom/2,baseY);
+ ctx.lineTo(baseX+wBottom/2,baseY);
+ ctx.lineTo(baseX+wTop/2,topY);
+ ctx.lineTo(baseX-wTop/2,topY);
+ ctx.closePath();
+ ctx.fill();
+
+ ctx.strokeStyle="rgba(0,0,0,0.25)";
+ trunkTexture.forEach(t=>{
+  ctx.beginPath();
+  ctx.moveTo(baseX+t.offset,baseY);
+  ctx.lineTo(baseX+t.offset+t.tilt,topY);
+  ctx.stroke();
+ });
+}
+
+/* FALLING HEARTS */
+function spawnFalling(){
+ if(Math.random()<0.015){
+  let src=treeHearts[Math.floor(Math.random()*treeHearts.length)];
+  fallingHearts.push({
+   x:src.x,
+   y:src.y,
+   size:src.size,
+   color:src.color,
+   vx:-0.5-Math.random()*0.4,
+   vy:0.7+Math.random()*0.8
+  });
+ }
+}
+
+/* TEXT */
+const message=`Thank you for all the moments we've shared together, the laughter, the memories, and even the challenges. Being with you has made my days brighter and my life happier.
+
+I know we won't always agree on everything, and sometimes we may have arguments or misunderstandings. But what matters to me is that we keep talking, keep listening, and keep choosing each other. I don't want our differences to push us apart; I want us to learn from them and grow stronger together.
+
+Every experience, good or difficult, becomes part of our story. Thank you for your kindness, your patience, your support, and for being yourself.
+
+I'm excited for all the memories we still have to create, all the adventures ahead, and all the little moments that make being with you so special.
+
+Happy Anniversary, and thank you for being such an important part of my life ❤️`;
+
+let typeIndex=0;
+function typeText(){
+ if(typeIndex < message.length){
+  document.getElementById("typingText").textContent += message[typeIndex];
+  typeIndex++;
+  setTimeout(typeText,40);
+ }
+}
+
+/* TIMER */
+const startDate = new Date("2025-06-08T00:00:00");
+
+function updateTimer(){
+ const now=new Date();
+ let diff=now-startDate;
+
+ let days=Math.floor(diff/(1000*60*60*24));
+ diff-=days*(1000*60*60*24);
+
+ let hours=Math.floor(diff/(1000*60*60));
+ diff-=hours*(1000*60*60);
+
+ let minutes=Math.floor(diff/(1000*60));
+ diff-=minutes*(1000*60);
+
+ let seconds=Math.floor(diff/1000);
+
+ document.getElementById("timer").innerText =
+ `${days} days ${hours} hours ${minutes} minutes ${seconds} seconds`;
+}
+setInterval(updateTimer,1000);
+updateTimer();
+
+/* MAIN LOOP */
+function draw(){
+
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+
+ if(phase===0){
+  seedY+=3;
+  if(seedY>canvas.height*0.8) phase=1;
+ }
+
+ if(phase===1){
+  trunkGrow+=2.8*TREE_SCALE;
+  if(trunkGrow>canvas.height*0.42*TREE_SCALE) phase=2;
+ }
+
+ if(phase===2){
+  crownGrow+=0.01;
+  if(crownGrow>=1){
+   phase=3;
+
+   document.getElementById("title").style.opacity=1;
+   document.getElementById("timerBox").style.opacity=1;
+
+   typeText();
+   playMusicSafe();
+  }
+ }
+
+ if(phase<=1){
+  ctx.fillStyle="#ffd166";
+  ctx.beginPath();
+  ctx.arc(canvas.width/2 + treeOffsetX,seedY,6*TREE_SCALE,0,Math.PI*2);
+  ctx.fill();
+ }
+
+ drawTrunk();
+
+ treeHearts.forEach((h,i)=>{
+  if(i/treeHearts.length<crownGrow){
+   drawHeart(h.x,h.y,h.size,h.color);
+  }
+ });
+
+ if(phase===3){
+  spawnFalling();
+
+  fallingHearts.forEach(f=>{
+   f.x+=f.vx;
+   f.y+=f.vy;
+   drawHeart(f.x,f.y,f.size,f.color);
+  });
+
+  fallingHearts=fallingHearts.filter(f=>f.y<canvas.height+40);
+ }
+
+ requestAnimationFrame(draw);
+}
+
+draw();
+
+</script>
+</body>
+</html>
